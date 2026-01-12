@@ -1,3 +1,4 @@
+import asyncio
 import argparse
 import sys
 
@@ -9,6 +10,7 @@ from config import load_gemini_settings
 from conversation import GeminiChatClient
 from logging_utils import configure_logging
 from voice_io import VoiceIO, VoiceIOUnavailableError
+from live_session import GeminiLiveSession
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -85,19 +87,36 @@ def run_voice_chat(chat_client: GeminiChatClient) -> None:
             voice.speak(reply)
     except KeyboardInterrupt:
         logger.info("Voice session terminated by user.")
+    system_prompt=settings.system_prompt,
+    )
+    if args.mode == "voice":
+        run_voice_chat(chat_client)
+    else:
+        run_text_chat(chat_client)
+    return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_arg_parser()
-    args = parser.parse_args(argv)
-    logger = configure_logging(name="agent1.cli")
-    try:
-        settings = load_gemini_settings(default_prompt_path=args.system_prompt_path)
-    except RuntimeError as exc:
-        logger.error(str(exc))
-        return 1
-    client = genai.Client(api_key=settings.api_key)
-    chat_client = GeminiChatClient(
+if __name__ == "__main__":
+    sys.exit(main())lient(
+        client=client,
+        model=settings.model,
+        system_prompt=settings.system_prompt,
+    )
+    if args.mode == "voice":
+        run_voice_chat(chat_client)
+    elif args.mode == "live":
+        run_live_chat(client, settings.model, settings.system_prompt)
+    ese:
+        run_text_chat(chat_client)
+    return 0
+
+
+f __nam__ == "__mai__":
+    sys.exi(main))
+
+
+
+
         client=client,
         model=settings.model,
         system_prompt=settings.system_prompt,
