@@ -76,6 +76,10 @@ class GeminiChatClient:
     def send_message(self, text: str) -> str:
         self._history.add_user_message(text)
         contents = list(self._history.messages)
+        
+        # Ensure system instruction is passed correctly to generate_content
+        # For google-genai SDK, it might be better to pass it in the config object
+        
         response = self._client.models.generate_content(
             model=self._model,
             contents=contents,

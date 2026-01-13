@@ -3,7 +3,7 @@ import logging
 import os
 import traceback
 from google import genai
-from .live_audio import AudioStream
+from live_audio import AudioStream
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,11 @@ class GeminiLiveSession:
         try:
             async for response in self.session.receive():
                 if response.server_content is None:
+                    continue
+
+                if getattr(response.server_content, "interrupted", False):
+                    logger.info("Interrupted by user input.")
+                    self.audio_stream.clear_output()
                     continue
 
                 model_turn = response.server_content.model_turn

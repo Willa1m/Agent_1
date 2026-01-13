@@ -1,7 +1,6 @@
 import asyncio
 import argparse
 import sys
-
 import time
 from google import genai
 from tenacity import RetryError
@@ -20,9 +19,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        choices=["text", "voice"],
+        choices=["text", "voice", "live"],
         default="text",
-        help="Interaction mode.",
+        help="Interaction mode: text, voice, or live (Gemini Live).",
     )
     parser.add_argument(
         "--system-prompt-path",
@@ -49,7 +48,7 @@ def run_text_chat(chat_client: GeminiChatClient) -> None:
             continue
         try:
             reply = chat_client.send_message(user_input)
-            time.sleep(2)  # Basic rate limiting
+            time.sleep(1)  # Basic rate limiting
         except RetryError:
             logger.error("API quota exceeded after retries. Please wait a moment and try again.")
             continue
@@ -87,48 +86,53 @@ def run_voice_chat(chat_client: GeminiChatClient) -> None:
             voice.speak(reply)
     except KeyboardInterrupt:
         logger.info("Voice session terminated by user.")
-    system_prompt=settings.system_prompt,
-    )
-    if args.mode == "voice":
-        run_voice_chat(chat_client)
-    else:
-        run_text_chat(chat_client)
-    return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())lient(
-        client=client,
-        model=settings.model,
-        system_prompt=settings.system_prompt,
-    )
-    if args.mode == "voice":
-        run_voice_chat(chat_client)
-    elif args.mode == "live":
+def run_live_chat(client: genai.Client, model: str, system_prompt: str | None) -> None:
+    logger = configure_logging(name="agent1.cli.live")
+    session = GeminiLiveSession(client, model, system_prompt)
+    
+    logger.info("Starting Gemini Live session. Press Ctrl+C to stop.")
+    try:
+        asyncio.run(session.start())
+    except KeyboardInterrupt:
+        logger.info("Live session terminated by user.")
+        session.stop()
+    except Exception as e:
+        logger.error(f"Live session error: {e}")
+        session.stop()
+
+
+def main() -> int:
+    parser = build_arg_parser()
+    args = parser.parse_args()
+
+    try:
+        settings = load_gemini_settings(default_prompt_path=args.system_prompt_path)
+    except RuntimeError as e:
+        print(f"Configuration Error: {e}")
+        return 1
+
+    client = genai.Client(api_key=settings.api_key, http_options={"api_version": "v1alpha"})
+
+    print(f"DEBUG: Active Model -> {settings.model}")
+    print(f"DEBUG: Interaction Mode -> {args.mode}")
+
+    if args.mode == "live":
         run_live_chat(client, settings.model, settings.system_prompt)
-    ese:
-        run_text_chat(chat_client)
-    return 0
-
-
-f __nam__ == "__mai__":
-    sys.exi(main))
-
-
-
-
-        client=client,
-        model=settings.model,
-        system_prompt=settings.system_prompt,
-    )
-    if args.mode == "voice":
-        run_voice_chat(chat_client)
     else:
-        run_text_chat(chat_client)
+        chat_client = GeminiChatClient(
+            client=client,
+            model=settings.model,
+            system_prompt=settings.system_prompt,
+        )
+        if args.mode == "voice":
+            run_voice_chat(chat_client)
+        else:
+            run_text_chat(chat_client)
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
