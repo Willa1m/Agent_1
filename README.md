@@ -50,6 +50,8 @@
 
 ### 1. 运行文本模式 CLI 助手
 
+**注意：** 请务必在项目根目录下，使用 `python -m src.main` 的方式运行，以确保模块路径正确。
+
 ```bash
 python -m src.main --mode text
 ```
@@ -59,10 +61,13 @@ python -m src.main --mode text
 
 ### 2. 运行语音模式 CLI 助手（可选）
 
-语音模式依赖额外库和本机音频设备支持：
+语音模式依赖额外库和本机音频设备支持。若检测到音频设备不可用（如在云端环境），程序将自动进入**模拟模式 (Mock Mode)**，模拟音频输入输出以便测试。
 
 ```bash
+# 安装依赖 (如果尚未安装)
 pip install -r requirements.txt
+
+# 运行语音模式
 python -m src.main --mode voice
 ```
 
