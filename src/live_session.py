@@ -3,7 +3,7 @@ import logging
 import os
 import traceback
 from google import genai
-from live_audio import AudioStream
+from src.live_audio import AudioStream
 
 logger = logging.getLogger(__name__)
 

@@ -5,11 +5,11 @@ import time
 from google import genai
 from tenacity import RetryError
 
-from config import load_gemini_settings
-from conversation import GeminiChatClient
-from logging_utils import configure_logging
-from voice_io import VoiceIO, VoiceIOUnavailableError
-from live_session import GeminiLiveSession
+from src.config import load_gemini_settings
+from src.conversation import GeminiChatClient
+from src.logging_utils import configure_logging
+from src.voice_io import VoiceIO, VoiceIOUnavailableError
+from src.live_session import GeminiLiveSession
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -119,7 +119,15 @@ def main() -> int:
     print(f"DEBUG: Interaction Mode -> {args.mode}")
 
     if args.mode == "live":
-        run_live_chat(client, settings.model, settings.system_prompt)
+        # Ensure we use a model that supports Live API (BidiGenerateContent)
+        # If the user-configured model is the default flash model (which doesn't support live yet),
+        # switch to an experimental model that does.
+        live_model = settings.model
+        if "gemini-2.5-flash" in live_model:
+            print("WARNING: 'gemini-2.5-flash' does not support Live API. Switching to 'gemini-2.0-flash-exp'.")
+            live_model = "gemini-2.0-flash-exp"
+
+        run_live_chat(client, live_model, settings.system_prompt)
     else:
         chat_client = GeminiChatClient(
             client=client,

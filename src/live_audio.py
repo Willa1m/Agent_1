@@ -1,6 +1,10 @@
 import asyncio
-import pyaudio
 import logging
+
+try:
+    import pyaudio
+except ImportError:
+    pyaudio = None
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +12,7 @@ class AudioStream:
     def __init__(self, rate=16000, chunk_size=1024):
         self.rate = rate
         self.chunk_size = chunk_size
-        self.p = pyaudio.PyAudio()
+        self.p = pyaudio.PyAudio() if pyaudio else None
         self.input_stream = None
         self.output_stream = None
         self.input_queue = asyncio.Queue()
@@ -17,6 +21,12 @@ class AudioStream:
         self.running = False
 
     def start_input(self):
+        if not self.p:
+            self.running = True
+            logger.warning("PyAudio not available. Starting MOCK microphone input.")
+            self.input_task = asyncio.create_task(self._mock_input_loop())
+            return
+
         def callback(in_data, frame_count, time_info, status):
             if self.running:
                 try:
@@ -37,7 +47,25 @@ class AudioStream:
         self.running = True
         logger.info("Microphone input started")
 
+    async def _mock_input_loop(self):
+        """Simulate audio input by sending silence or dummy data periodically."""
+        while self.running:
+            await asyncio.sleep(0.1)  # Simulate chunk rate
+            # Create a silent audio chunk (16-bit PCM, 1 channel)
+            # chunk_size frames * 2 bytes/frame
+            dummy_data = b'\x00' * self.chunk_size * 2
+            try:
+                self.input_queue.put_nowait(dummy_data)
+            except asyncio.QueueFull:
+                pass
+
     def start_output(self):
+        if not self.p:
+            self.running = True
+            logger.warning("PyAudio not available. Starting MOCK speaker output.")
+            self.play_task = asyncio.create_task(self._mock_play_loop())
+            return
+
         self.output_stream = self.p.open(
             format=pyaudio.paInt16,
             channels=1,
@@ -61,6 +89,25 @@ class AudioStream:
                 break
             except Exception as e:
                 logger.error(f"Playback error: {e}")
+
+    async def _mock_play_loop(self):
+        """Simulate audio playback by just consuming the queue."""
+        try:
+            while self.running:
+                try:
+                    # Use wait_for to allow cancellation check if queue is empty
+                    data = await asyncio.wait_for(self.output_queue.get(), timeout=0.5)
+                    # Simulate playback time
+                    # chunk_size / rate = seconds
+                    duration = self.chunk_size / self.rate
+                    # await asyncio.sleep(duration) # Optional: Real-time simulation
+                    # Log occasionally to avoid spam
+                    # logger.debug(f"Mock played {len(data)} bytes of audio")
+                    self.output_queue.task_done()
+                except asyncio.TimeoutError:
+                    continue
+        except asyncio.CancelledError:
+            pass
 
     async def get_audio_chunk(self):
         return await self.input_queue.get()
@@ -92,5 +139,6 @@ class AudioStream:
         if self.output_stream:
             self.output_stream.stop_stream()
             self.output_stream.close()
-        self.p.terminate()
+        if self.p:
+            self.p.terminate()
         logger.info("Audio streams stopped")
